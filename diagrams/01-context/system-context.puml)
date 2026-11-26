@@ -1,0 +1,21 @@
+@startuml system-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Contexto del Sistema (C4 Nivel 1) - Sistema Distribuido de Gestión de Fotografías
+
+Person(visitor, "Visitante", "Usuario no autenticado que explora álbumes públicos y fotografías compartidas.")
+Person(user, "Usuario Registrado", "Sube, organiza, edita fotografías y configura copias en nubes externas.")
+Person(admin, "Administrador de Servidor", "Gestiona nodos federados, cuotas, replicación y estado del clúster.")
+
+System(photo_system, "Sistema Distribuido de Gestión de Fotografías", "Plataforma distribuida para almacenamiento, catalogación, procesamiento extensible y sincronización de fotografías.")
+
+System_Ext(external_clouds, "Servicios de Nube Externa", "Almacenamientos externos conectados (Google Drive, Amazon S3, Dropbox) para importación y respaldo.")
+
+Rel(visitor, photo_system, "Consulta galerías y fotos públicas", "HTTPS")
+Rel(user, photo_system, "Sube, edita, etiqueta y sincroniza álbumes", "HTTPS")
+Rel(admin, photo_system, "Administra nodos, réplicas y políticas", "HTTPS")
+Rel(photo_system, external_clouds, "Sincroniza e importa/exporta activos fotográficos", "REST API / OAuth2")
+
+@enduml

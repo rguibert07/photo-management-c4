@@ -1,0 +1,46 @@
+@startuml container-topology
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Diagrama de Contenedores (C4 Nivel 2) - Client-Server & Replicated Servers
+
+Person(user, "Usuario / Administrador", "Interactúa con el sistema desde navegador web.")
+System_Ext(external_clouds, "Nubes Externas", "Google Drive, S3, Dropbox")
+
+System_Boundary(photo_system, "Sistema Distribuido de Gestión de Fotografías") {
+
+    Container(spa, "Aplicación Web Cliente", "React (SPA)", "[Client-Server] Interfaz de usuario; selecciona dinámicamente el nodo de fotos óptimo.")
+
+    Boundary(control_plane, "Plano de Control Replicado [Replicated Servers]") {
+        Container(meta_server, "Metaservidor (Réplicas)", "FastAPI", "[Subsystem Interface + Replicated Servers] Directorio global de nodos, enrutamiento y estado de réplicas.")
+        Container(identity_service, "Servicio de Identidad (Réplicas)", "FastAPI / OAuth2-JWT", "[Replicated Servers] Autenticación federada, gestión de sesiones y tokens.")
+        ContainerDb(meta_db, "Base de Datos de Metadatos", "PostgreSQL (Clúster)", "Almacena usuarios, permisos, índice global y topología de nodos.")
+    }
+
+    Boundary(storage_node, "Nodo de Servidor de Fotografías [Replicated Servers / Microkernel]") {
+        Container(photo_api, "API de Nodo de Fotos", "FastAPI", "[Layered Architecture + Microkernel] Gestión de álbumes, fachadas de subsistemas y orquestación de plug-ins.")
+        Container(broker, "Cola de Tareas", "Redis", "Gestiona tareas asíncronas de procesamiento de imagen y sincronización.")
+        Container(workers, "Workers de Procesamiento", "Celery + Python", "[Microkernel Plug-ins] Ejecuta transformaciones, generación de miniaturas, mosaicos y conectores nube.")
+        ContainerDb(node_db, "BD Local del Nodo", "PostgreSQL", "Metadatos locales, etiquetas EXIF e historial de ediciones del nodo.")
+        ContainerDb(object_store, "Almacén de Objetos", "MinIO (S3 Compatible)", "Almacenamiento binario de originales, versiones editadas y miniaturas.")
+    }
+}
+
+Rel(user, spa, "Usa", "HTTPS")
+Rel(spa, identity_service, "Autentica y obtiene JWT", "HTTPS / JSON")
+Rel(spa, meta_server, "Consulta ubicación de nodos y catálogo global", "HTTPS / JSON")
+Rel(spa, photo_api, "Sube, descarga y edita fotografías directamente", "HTTPS / Multipart")
+
+Rel(meta_server, meta_db, "Lee/escribe estado global", "SQL / TCP")
+Rel(identity_service, meta_db, "Valida credenciales y roles", "SQL / TCP")
+Rel(photo_api, meta_server, "Reporta latidos (heartbeats) y sincroniza índice", "HTTPS / JSON")
+
+Rel(photo_api, node_db, "Persiste metadatos locales", "SQL / TCP")
+Rel(photo_api, object_store, "Lee/escribe binarios de fotos", "S3 API")
+Rel(photo_api, broker, "Encola tareas pesadas", "Redis Protocol")
+Rel(workers, broker, "Consume tareas", "Redis Protocol")
+Rel(workers, object_store, "Procesa y guarda derivados", "S3 API")
+Rel(workers, external_clouds, "Sincroniza mediante adaptadores [Subsystem Interface]", "HTTPS / OAuth2")
+
+@enduml
